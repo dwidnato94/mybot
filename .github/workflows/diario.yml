@@ -33,3 +33,11 @@ jobs:
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: python bot.py
+
+    # --- NOVEDAD: Sube la foto para que la podamos descargar ---
+    - name: Guardar captura de pantalla
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: captura-debug
+        path: captura_error.png
