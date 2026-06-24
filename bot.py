@@ -3,15 +3,13 @@ import asyncio
 from playwright.async_api import async_playwright
 import requests
 
-# Configuración desde los Secrets de GitHub
 URL_LOGIN = "https://www.oxaam.com/login.php"
-USER = os.environ.get("WEB_USER")
-PASSWORD = os.environ.get("WEB_PASSWORD")
+USER = os.environ.get("WEB_USER") or ""
+PASSWORD = os.environ.get("WEB_PASSWORD") or ""
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def enviar_telegram(texto):
-    """Envía las credenciales extraídas a su chat de Telegram"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -19,13 +17,9 @@ def enviar_telegram(texto):
         "parse_mode": "Markdown"
     }
     try:
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            print("¡Mensaje enviado a Telegram correctamente!")
-        else:
-            print(f"Error al enviar a Telegram: {response.text}")
+        requests.post(url, json=payload)
     except Exception as e:
-        print(f"Error en la petición de Telegram: {e}")
+        print(f"Error enviando a Telegram: {e}")
 
 async def main():
     async with async_playwright() as p:
@@ -40,17 +34,14 @@ async def main():
         await page.wait_for_load_state("networkidle")
         
         print("2. Introduciendo credenciales de acceso...")
-        await page.fill("input[name='email']", USER)
-        await page.fill("input[name='password']", PASSWORD)
+        await page.locator("input[type='email'], input[name='email'], input[name='username'], input[type='text']").first.fill(USER)
+        await page.locator("input[type='password'], input[name='password']").first.fill(PASSWORD)
         
         print("3. Pulsando el botón de iniciar sesión...")
-        await page.click("button[type='submit']")
+        await page.locator("button[type='submit'], input[type='submit'], button:has-text('Login')").first.click()
         await page.wait_for_load_state("networkidle")
         
-        # --- INICIO DE LA RUTA DE CLICS ---
-        
         print("4. Buscando y pulsando en 'Browse Free Services'...")
-        # Busca cualquier elemento que contenga exactamente ese texto y hace clic
         await page.get_by_text("Browse Free Services", exact=False).first.click()
         await page.wait_for_load_state("networkidle")
         
@@ -59,24 +50,32 @@ async def main():
         await page.wait_for_load_state("networkidle")
         
         print("6. Buscando y pulsando en 'Apliv Music'...")
+        # Hace clic en el título que se ve en su captura
         await page.get_by_text("Apliv Music", exact=False).first.click()
         await page.wait_for_load_state("networkidle")
         
-        # --- EXTRACCIÓN DE LOS DATOS ---
-        print("7. Extrayendo las credenciales de Apliv Music...")
+        print("7. Extrayendo las credenciales...")
+        # Esperamos 3 segundos para dar tiempo a que aparezca la caja gris
+        await page.wait_for_timeout(3000)
         
-        # Esperamos un momento breve para asegurar que carguen los datos en pantalla
-        await page.wait_for_timeout(2000)
-        
-        # Copiamos el texto de la zona final. Como no conocemos las etiquetas exactas todavía,
-        # leemos el texto general de la sección activa para buscar el correo y contraseña.
+        # Leemos todo el texto de la web
         texto_pantalla = await page.locator("body").inner_text()
         
-        # Preparamos el mensaje para Telegram
-        # (Si la pantalla tiene mucho texto sobrante, luego podemos recortarlo, pero así nos aseguramos de capturarlo)
-        mensaje_telegram = f"**🔑 Credenciales Diarias de Apliv Music:**\n\n{texto_pantalla.strip()[:1500]}"
+        # Filtramos mágicamente solo las líneas que nos interesan
+        lineas = texto_pantalla.split('\n')
+        credenciales = []
+        for linea in lineas:
+            if "Email ->" in linea or "Password ->" in linea:
+                credenciales.append(linea.strip())
         
-        # --- ENVÍO ---
+        # Construimos el mensaje final limpio para Telegram
+        if credenciales:
+            texto_limpio = "\n".join(credenciales)
+            mensaje_telegram = f"**🔑 Credenciales Diarias de Apliv Music:**\n\n`{texto_limpio}`"
+        else:
+            mensaje_telegram = "⚠️ **Error:** El bot llegó a la página final, pero no encontró las palabras 'Email ->' o 'Password ->'."
+        
+        print("8. Enviando mensaje a Telegram...")
         enviar_telegram(mensaje_telegram)
         
         await browser.close()
