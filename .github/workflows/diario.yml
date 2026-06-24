@@ -1,0 +1,36 @@
+name: Ejecucion Diario Scraper
+
+on:
+  schedule:
+    # Se ejecuta todos los días a las 07:00 AM UTC (Equivale a las 09:00 AM en España en horario de verano)
+    - cron: '0 7 * * *'
+  workflow_dispatch: # Esto permite que pueda pulsar un botón para probarlo manualmente
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Descargar el codigo del repositorio
+      uses: actions/checkout@v4
+
+    - name: Configurar Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Instalar librerias de Python
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Instalar Navegador Chromium (Playwright)
+      run: npx playwright install chromium
+
+    - name: Ejecutar el Bot Scraper
+      env:
+        WEB_USER: ${{ secrets.WEB_USER }}
+        WEB_PASSWORD: ${{ secrets.WEB_PASSWORD }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: python bot.py
