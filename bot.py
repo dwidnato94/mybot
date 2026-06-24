@@ -33,6 +33,10 @@ async def main():
         await page.goto(URL_LOGIN)
         await page.wait_for_load_state("networkidle")
         
+        # --- NOVEDAD: Hacemos una foto de la pantalla ---
+        print("📸 Haciendo captura de pantalla para depuración...")
+        await page.screenshot(path="captura_error.png")
+        
         print("2. Introduciendo credenciales de acceso...")
         await page.locator("input[type='email'], input[name='email'], input[name='username'], input[type='text']").first.fill(USER)
         await page.locator("input[type='password'], input[name='password']").first.fill(PASSWORD)
@@ -50,30 +54,25 @@ async def main():
         await page.wait_for_load_state("networkidle")
         
         print("6. Buscando y pulsando en 'Apliv Music'...")
-        # Hace clic en el título que se ve en su captura
         await page.get_by_text("Apliv Music", exact=False).first.click()
         await page.wait_for_load_state("networkidle")
         
         print("7. Extrayendo las credenciales...")
-        # Esperamos 3 segundos para dar tiempo a que aparezca la caja gris
         await page.wait_for_timeout(3000)
         
-        # Leemos todo el texto de la web
         texto_pantalla = await page.locator("body").inner_text()
         
-        # Filtramos mágicamente solo las líneas que nos interesan
         lineas = texto_pantalla.split('\n')
         credenciales = []
         for linea in lineas:
             if "Email ->" in linea or "Password ->" in linea:
                 credenciales.append(linea.strip())
         
-        # Construimos el mensaje final limpio para Telegram
         if credenciales:
             texto_limpio = "\n".join(credenciales)
             mensaje_telegram = f"**🔑 Credenciales Diarias de Apliv Music:**\n\n`{texto_limpio}`"
         else:
-            mensaje_telegram = "⚠️ **Error:** El bot llegó a la página final, pero no encontró las palabras 'Email ->' o 'Password ->'."
+            mensaje_telegram = "⚠️ **Error:** El bot llegó a la página final, pero no encontró las credenciales."
         
         print("8. Enviando mensaje a Telegram...")
         enviar_telegram(mensaje_telegram)
