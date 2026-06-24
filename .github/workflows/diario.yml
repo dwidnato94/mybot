@@ -2,9 +2,8 @@ name: Ejecucion Diario Scraper
 
 on:
   schedule:
-    # Se ejecuta todos los días a las 07:00 AM UTC (Equivale a las 09:00 AM en España en horario de verano)
     - cron: '0 7 * * *'
-  workflow_dispatch: # Esto permite que pueda pulsar un botón para probarlo manualmente
+  workflow_dispatch:
 
 jobs:
   run-scraper:
@@ -25,7 +24,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: Instalar Navegador Chromium (Playwright)
-      run: npx playwright install chromium
+      run: python -m playwright install chromium
 
     - name: Ejecutar el Bot Scraper
       env:
