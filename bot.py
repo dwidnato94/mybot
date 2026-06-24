@@ -1,7 +1,7 @@
 import os
 import asyncio
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 import requests
 
 URL_LOGIN = "https://www.oxaam.com/login.php"
@@ -23,8 +23,8 @@ def enviar_telegram(texto):
         print(f"Error enviando a Telegram: {e}")
 
 async def main():
-    async with async_playwright() as p:
-        # Usamos argumentos extra para despistar a Cloudflare
+    # ¡Aquí está la magia de la nueva versión! Envolvemos Playwright directamente con Stealth.
+    async with Stealth().use_async(async_playwright()) as p:
         browser = await p.chromium.launch(
             headless=True,
             args=["--disable-blink-features=AutomationControlled"]
@@ -34,14 +34,10 @@ async def main():
         )
         page = await context.new_page()
         
-        # Activamos la capa de invisibilidad
-        await stealth_async(page)
-        
         print("1. Abriendo la web de Oxaam...")
         await page.goto(URL_LOGIN)
         await page.wait_for_load_state("networkidle")
         
-        # Hacemos una foto por si acaso sigue el bloqueo
         print("📸 Haciendo captura de pantalla para depuración...")
         await page.screenshot(path="captura_error.png")
         
