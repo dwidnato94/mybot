@@ -3,7 +3,7 @@ import asyncio
 from playwright.async_api import async_playwright
 import requests
 
-# 1. Configuración desde los Secrets de GitHub (Seguridad)
+# Configuración desde los Secrets de GitHub
 URL_LOGIN = "https://www.oxaam.com/login.php"
 USER = os.environ.get("WEB_USER")
 PASSWORD = os.environ.get("WEB_PASSWORD")
@@ -11,7 +11,7 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 def enviar_telegram(texto):
-    """Envía el texto extraído a su chat de Telegram"""
+    """Envía las credenciales extraídas a su chat de Telegram"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
@@ -29,47 +29,55 @@ def enviar_telegram(texto):
 
 async def main():
     async with async_playwright() as p:
-        # Lanzamos Chromium en modo headless
         browser = await p.chromium.launch(headless=True)
-        # Añadimos un user_agent común para evitar bloqueos por parecer un bot básico
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
         
-        print("Abriendo la web de Oxaam...")
+        print("1. Abriendo la web de Oxaam...")
         await page.goto(URL_LOGIN)
         await page.wait_for_load_state("networkidle")
         
-        # --- INICIO DE SESIÓN ---
-        print("Introduciendo credenciales...")
-        # El input de usuario en Oxaam utiliza el atributo name="email"
+        print("2. Introduciendo credenciales de acceso...")
         await page.fill("input[name='email']", USER)
-        # El input de contraseña utiliza el atributo name='password'
         await page.fill("input[name='password']", PASSWORD)
         
-        print("Pulsando el botón de iniciar sesión...")
-        # Hacemos clic en el botón de entrar
+        print("3. Pulsando el botón de iniciar sesión...")
         await page.click("button[type='submit']")
-        
-        # Esperamos a que la navegación termine tras el login y cargue el panel principal
         await page.wait_for_load_state("networkidle")
         
-        # --- EXTRACCIÓN DEL TEXTO EN EL DASHBOARD ---
-        print("Extrayendo información...")
+        # --- INICIO DE LA RUTA DE CLICS ---
         
-        # NOTA: Como no sé exactamente qué texto quiere extraer de su panel privado,
-        # aquí usamos page.locator().inner_text() apuntando al elemento concreto.
-        # De momento, el bot extraerá todo el texto visible del cuerpo de la página tras loguearse.
-        # Puede cambiar 'body' por el selector específico (ej: '.clase-del-texto' o '#id-del-texto') cuando lo sepa.
-        elemento_texto = await page.locator("body").inner_text()
+        print("4. Buscando y pulsando en 'Browse Free Services'...")
+        # Busca cualquier elemento que contenga exactamente ese texto y hace clic
+        await page.get_by_text("Browse Free Services", exact=False).first.click()
+        await page.wait_for_load_state("networkidle")
         
-        # Filtramos o formateamos el texto para enviarlo limpio
-        texto_recortado = elemento_texto.strip()[:1000] # Limitamos a los primeros 1000 caracteres por seguridad de espacio
-        texto_final = f"**Informe Diario de Oxaam:**\n\n{texto_recortado}"
+        print("5. Buscando y pulsando en 'Click here for more free services'...")
+        await page.get_by_text("Click here for more free services", exact=False).first.click()
+        await page.wait_for_load_state("networkidle")
+        
+        print("6. Buscando y pulsando en 'Apliv Music'...")
+        await page.get_by_text("Apliv Music", exact=False).first.click()
+        await page.wait_for_load_state("networkidle")
+        
+        # --- EXTRACCIÓN DE LOS DATOS ---
+        print("7. Extrayendo las credenciales de Apliv Music...")
+        
+        # Esperamos un momento breve para asegurar que carguen los datos en pantalla
+        await page.wait_for_timeout(2000)
+        
+        # Copiamos el texto de la zona final. Como no conocemos las etiquetas exactas todavía,
+        # leemos el texto general de la sección activa para buscar el correo y contraseña.
+        texto_pantalla = await page.locator("body").inner_text()
+        
+        # Preparamos el mensaje para Telegram
+        # (Si la pantalla tiene mucho texto sobrante, luego podemos recortarlo, pero así nos aseguramos de capturarlo)
+        mensaje_telegram = f"**🔑 Credenciales Diarias de Apliv Music:**\n\n{texto_pantalla.strip()[:1500]}"
         
         # --- ENVÍO ---
-        enviar_telegram(texto_final)
+        enviar_telegram(mensaje_telegram)
         
         await browser.close()
 
